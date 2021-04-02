@@ -22,6 +22,7 @@ mongoose
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      useFindAndModify: false,
     }
   )
   .catch((error) => console.log(error));
@@ -33,7 +34,7 @@ mongoose.connection.once("open", () => {
 
 const productSchema = new Schema({
   name: { type: String, require: true },
-  size: { type: Array, default: ["XS", "S", "M", "L", "XL", "XXL"] },
+  size: { type: Array },
   price: { type: Number, require: true },
   imageURL: { type: String, require: true },
   createdAt: { type: Date, default: Date.now },
@@ -41,12 +42,21 @@ const productSchema = new Schema({
 const Product = mongoose.model("Product", productSchema);
 
 const orderSchema = new Schema({
+  name: { type: String, require: true },
+  email: { type: String, require: true },
+  products: { type: Array, require: true },
+  quantity: { type: Number, require: true },
+  createdAt: { type: Date, default: Date.now },
+});
+const Order = mongoose.model("Order", orderSchema);
+
+const cartSchema = new Schema({
   userName: { type: String, require: true },
   email: { type: String, require: true },
   productId: { type: String, require: true },
   createdAt: { type: Date, default: Date.now },
 });
-const Order = mongoose.model("Order", orderSchema);
+const Cart = mongoose.model("Cart", cartSchema);
 
 app.get("/", (req, res) => res.send(`YAY server working!`));
 
@@ -89,7 +99,7 @@ app.delete(`/remove-product`, async (req, res) => {
   }
 });
 
-app.post("/submit-order", async (req, res) => {
+app.post("/add-to-cart", async (req, res) => {
   try {
     const userAuthToken = req.headers.authorization;
     const { userName, email, productId } = await req.body;
@@ -99,14 +109,59 @@ app.post("/submit-order", async (req, res) => {
       userAuthToken.includes("Bearer ") !== true ||
       verifyToken.email !== email
     ) {
-      return res.status(401).send({ success: false, msg: "Unauthorized" });
+      return res
+        .status(401)
+        .send({ success: false, msg: "Something went wrong" });
     }
 
-    const newOrder = new Order({ userName, email, productId });
+    const newCart = new Cart({ userName, email, productId });
+    const response = await Cart.create(newCart);
+    // console.log(response);
+    res.send({ success: true, msg: "Product Added" });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/submit-order", async (req, res) => {
+  try {
+    const userAuthToken = req.headers.authorization;
+    const { name, email, products, quantity, totalPrice } = await req.body;
+    const idToken = userAuthToken.split(" ")[1];
+    const verifyToken = await admin.auth().verifyIdToken(idToken);
+    if (
+      userAuthToken.includes("Bearer ") !== true ||
+      verifyToken.email !== email
+    ) {
+      return res
+        .status(401)
+        .send({ success: false, msg: "Something went wrong" });
+    }
+
+    const newOrder = new Order({ name, email, products, quantity, totalPrice });
     const response = await Order.create(newOrder);
+    const deleteCartProduct = await Cart.deleteMany({ email });
+    // console.log(response);
+    res.send({ success: true, msg: "Order Submited" });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get("/get-cart-products", async (req, res) => {
+  const userAuthToken = req.headers.authorization;
+  const idToken = userAuthToken.split(" ")[1];
+  if (userAuthToken.includes("Bearer ") !== true) {
+    return res.status(401).send({ success: false, msg: "Unauthorized" });
+  }
+
+  try {
+    const verifyToken = await admin.auth().verifyIdToken(idToken);
+    const response = await Cart.find({ email: verifyToken.email });
     // console.log(response);
     res.send(response);
   } catch (error) {
+    res.send(error);
     console.log(error);
   }
 });
@@ -129,24 +184,70 @@ app.get("/get-orders", async (req, res) => {
   }
 });
 
+app.post("/delete-cart-product", async (req, res) => {
+  const userAuthToken = req.headers.authorization;
+  const { _id, email } = await req.body;
+  // console.log(req.body);
+  const idToken = userAuthToken.split(" ")[1];
+  const verifyToken = await admin.auth().verifyIdToken(idToken);
+  if (
+    userAuthToken.includes("Bearer ") !== true ||
+    verifyToken.email !== email
+  ) {
+    return res.status(401).send({ success: false, msg: "Unauthorized" });
+  }
+
+  try {
+    const response = await Cart.find({ _id });
+    // console.log(response);
+    res.send(response);
+  } catch (error) {
+    res.send(error);
+    console.log(error);
+  }
+});
+
 app.post(`/get-product-details-by-id`, async (req, res) => {
   const productIdCollection = req.body;
-
+  console.log(productIdCollection);
   try {
     const response = await Product.find({
       _id: { $in: productIdCollection },
     });
     res.send(response);
+    // console.log(response);
   } catch (error) {
     console.log(error);
+  }
+});
+
+app.get(`/get-single-product-details-by-id/:_id`, async (req, res) => {
+  const { _id } = req.params;
+  // console.log(req.params);
+  try {
+    const response = await Product.find({ _id });
+    res.send(response[0]);
+    // console.log(response[0]);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.patch("/edit-product-by-id/:_id", async (req, res) => {
+  try {
+    console.log(req.body);
+    const { _id } = req.params;
+    const response = await Product.findByIdAndUpdate(
+      { _id },
+      { $set: req.body }
+    );
+    res.send({ success: true, msg: "Product Updated" });
+  } catch (error) {
+    console.log(error);
+    res.send(error);
   }
 });
 
 app.listen(port, () =>
   console.log(`server started at http://localhost:${port}`)
 );
-
-/****
- * server link
- * https://nameless-lowlands-72199.herokuapp.com/
- */
