@@ -102,6 +102,7 @@ app.delete(`/remove-product`, async (req, res) => {
 app.post("/add-to-cart", async (req, res) => {
   try {
     const userAuthToken = req.headers.authorization;
+    // console.log(userAuthToken)
     const { userName, email, productId } = await req.body;
     const idToken = userAuthToken.split(" ")[1];
     const verifyToken = await admin.auth().verifyIdToken(idToken);
