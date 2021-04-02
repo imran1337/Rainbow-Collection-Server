@@ -1,3 +1,4 @@
 /node_modules/
 .env
+.env.local
 rainbow-collection-firebase-adminsdk-bcsqw-2062d3695b.json

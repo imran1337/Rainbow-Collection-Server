@@ -18,7 +18,7 @@ admin.initializeApp({
 
 mongoose
   .connect(
-    `mongodb+srv://rainbowAdmin:rainbowAdmin1337@cluster0.klaju.mongodb.net/rainbowdb?retryWrites=true&w=majority&ssl=true`,
+    `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@cluster0.klaju.mongodb.net/rainbowdb?retryWrites=true&w=majority&ssl=true`,
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,
